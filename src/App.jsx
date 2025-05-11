@@ -67,7 +67,7 @@ export default function App() {
           "Authorization": `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "dall-e-3",
+          model: "gpt-image-1",
           prompt,
           n: 1,
           size: "1024x1024",
@@ -78,18 +78,21 @@ export default function App() {
         throw new Error(err.error?.message || "Failed to generate image");
       }
       const data = await res.json();
-      const url = data.data?.[0]?.url;
-      if (url) {
+      console.log(data);
+
+      const b64 = data.data?.[0]?.b64_json;
+      if (b64) {
+        const imageUrl = `data:image/png;base64,${b64}`;
         if (isRegenerate && imageIdx !== null) {
           setChat((prev) => {
             const updated = [...prev];
-            updated[imageIdx] = { type: "image", content: url, prompt };
+            updated[imageIdx] = { type: "image", content: imageUrl, prompt };
             return updated;
           });
         } else {
           setChat((prev) => [
             ...prev,
-            { type: "image", content: url, prompt }
+            { type: "image", content: imageUrl, prompt }
           ]);
         }
       } else {
