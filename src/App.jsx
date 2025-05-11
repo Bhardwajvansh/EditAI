@@ -490,7 +490,7 @@ export default function App() {
     <div className="min-h-screen bg-gradient-to-br from-[#f5f6ff] to-[#fbefff] flex items-center justify-center">
       <div className="w-full min-h-screen max-w-7xl bg-white/80 rounded-3xl shadow-xl p-8 flex flex-col">
         <div className="text-center mb-6">
-          <h1 className="text-4xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500 mb-2 animate-fade-in">
+          <h1 className="text-4xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500 mb-2 animate-fade-in border-2">
             EditAI
           </h1>
           <p className="text-lg text-purple-400 animate-fade-in-slow">
@@ -638,11 +638,10 @@ export default function App() {
           <div className="flex gap-2 mb-2">
             <button
               type="button"
-              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${
-                mode === "generate"
-                  ? "bg-gradient-to-br from-purple-400 to-pink-400 text-white"
-                  : "bg-white border border-purple-200 text-purple-500"
-              }`}
+              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${mode === "generate"
+                ? "bg-gradient-to-br from-purple-400 to-pink-400 text-white"
+                : "bg-white border border-purple-200 text-purple-500"
+                }`}
               onClick={() => handleModeChange("generate")}
               disabled={loading}
             >
@@ -650,11 +649,10 @@ export default function App() {
             </button>
             <button
               type="button"
-              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${
-                mode === "edit"
-                  ? "bg-gradient-to-br from-pink-400 to-purple-400 text-white"
-                  : "bg-white border border-pink-200 text-pink-500"
-              }`}
+              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${mode === "edit"
+                ? "bg-gradient-to-br from-pink-400 to-purple-400 text-white"
+                : "bg-white border border-pink-200 text-pink-500"
+                }`}
               onClick={() => handleModeChange("edit")}
               disabled={loading}
             >
@@ -662,11 +660,10 @@ export default function App() {
             </button>
             <button
               type="button"
-              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${
-                mode === "variation"
-                  ? "bg-gradient-to-br from-yellow-400 to-pink-400 text-white"
-                  : "bg-white border border-yellow-200 text-yellow-600"
-              }`}
+              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${mode === "variation"
+                ? "bg-gradient-to-br from-yellow-400 to-pink-400 text-white"
+                : "bg-white border border-yellow-200 text-yellow-600"
+                }`}
               onClick={() => handleModeChange("variation")}
               disabled={loading}
             >
@@ -686,8 +683,8 @@ export default function App() {
               onChange={e => setInput(e.target.value)}
               maxLength={
                 (mode === "generate" && genModel === "gpt-image-1") ? 32000 :
-                (mode === "generate" && genModel === "dall-e-3") ? 4000 :
-                1000
+                  (mode === "generate" && genModel === "dall-e-3") ? 4000 :
+                    1000
               }
               disabled={loading}
             />
@@ -913,7 +910,7 @@ export default function App() {
           {/* Variation Mode Fields */}
           {mode === "variation" && (
             <div className="flex flex-col md:flex-row gap-2 items-center mb-1">
-              <label className="text-yellow-600 font-medium">
+              <label className="cursor-pointer text-yellow-600 font-medium">
                 Image for Variation:
                 <input
                   type="file"
@@ -957,8 +954,8 @@ export default function App() {
           )}
           {/* Image Upload (Edit mode) */}
           {mode === "edit" && (
-            <div className="flex flex-col md:flex-row gap-2 items-center mb-1">
-              <label className="text-purple-500 font-medium">
+            <div className="flex flex-col md:flex-row gap-2 items-center mb-1 cursor-pointer">
+              <label className="cursor-pointer text-purple-500 font-medium">
                 Image to Edit:
                 <input
                   type="file"
