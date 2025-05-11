@@ -42,19 +42,24 @@ const BotLogo = () => (
 
 export default function App() {
   // New state for mode, uploads, model, and options
-  const [mode, setMode] = useState("generate"); // "generate" or "edit"
+  const [mode, setMode] = useState("generate"); // "generate" | "edit" | "variation"
   const [input, setInput] = useState("");
-  const [uploadedImage, setUploadedImage] = useState(null); // File or array of Files
-  const [maskImage, setMaskImage] = useState(null); // File
-  const [model, setModel] = useState("dall-e-2"); // "dall-e-2" or "gpt-image-1"
-  const [background, setBackground] = useState("auto"); // For gpt-image-1
-  const [quality, setQuality] = useState("auto"); // For gpt-image-1
-  const [size, setSize] = useState("1024x1024"); // Default size
+  const [uploadedImage, setUploadedImage] = useState(null); // For edit
+  const [maskImage, setMaskImage] = useState(null); // For edit
+  const [model, setModel] = useState("dall-e-2"); // For edit
+  const [background, setBackground] = useState("auto"); // For edit (gpt-image-1)
+  const [quality, setQuality] = useState("auto"); // For edit (gpt-image-1)
+  const [size, setSize] = useState("1024x1024"); // For edit/generate
   const [formError, setFormError] = useState("");
+  // Variation mode state
+  const [variationImage, setVariationImage] = useState(null); // File for variation
+  const [variationN, setVariationN] = useState(1); // Number of variations
+  const [variationSize, setVariationSize] = useState("1024x1024"); // Size for variation
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [chat, setChat] = useState([]);
   const [expandedIdx, setExpandedIdx] = useState(null);
+  const [expandedImageIdx, setExpandedImageIdx] = useState(null); // For multi-image expand
   const chatEndRef = useRef(null);
 
   const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
@@ -119,12 +124,17 @@ export default function App() {
     setMode(newMode);
     setFormError("");
     setError("");
+    // Reset all form fields on mode change
     setUploadedImage(null);
     setMaskImage(null);
     setModel("dall-e-2");
     setBackground("auto");
     setQuality("auto");
     setSize("1024x1024");
+    setInput("");
+    setVariationImage(null);
+    setVariationN(1);
+    setVariationSize("1024x1024");
   }
 
   // File input handlers
@@ -136,12 +146,57 @@ export default function App() {
     const file = e.target.files[0];
     setMaskImage(file);
   }
+  function handleVariationImageUpload(e) {
+    const file = e.target.files[0];
+    setVariationImage(file);
+  }
 
   // Unified form submit handler
   async function handleFormSubmit(e) {
     e.preventDefault();
     setFormError("");
     setError("");
+    if (mode === "variation") {
+      // Validate variation image
+      if (!variationImage) {
+        setFormError("Please upload a PNG image for variation.");
+        return;
+      }
+      if (variationImage.type !== "image/png") {
+        setFormError("Variation image must be a PNG file.");
+        return;
+      }
+      if (variationImage.size > 4 * 1024 * 1024) {
+        setFormError("Variation image must be less than 4MB.");
+        return;
+      }
+      if (variationN < 1 || variationN > 10) {
+        setFormError("Number of variations must be between 1 and 10.");
+        return;
+      }
+      // Optionally: check if image is square (client-side)
+      const checkSquare = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+          const img = new window.Image();
+          img.onload = function () {
+            resolve(img.width === img.height);
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(variationImage);
+      });
+      if (!checkSquare) {
+        setFormError("Variation image must be square (width = height).");
+        return;
+      }
+      setChat((prev) => [
+        ...prev,
+        { type: "user", content: "Create variation" }
+      ]);
+      await createVariation();
+      return;
+    }
     if (!input.trim()) {
       setFormError("Please enter a prompt.");
       return;
@@ -159,6 +214,58 @@ export default function App() {
       await generateImage(input, false, null);
     } else {
       await editImage(input);
+    }
+  }
+
+  // Image Variation API integration
+  async function createVariation() {
+    setLoading(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("image", variationImage);
+      formData.append("n", variationN);
+      formData.append("size", variationSize);
+      formData.append("model", "dall-e-2");
+      formData.append("response_format", "url");
+      const res = await fetch("https://api.openai.com/v1/images/variations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: formData,
+      });
+      if (!res.ok) {
+        let err;
+        try {
+          err = await res.json();
+        } catch {
+          err = { error: { message: "Failed to create variation" } };
+        }
+        throw new Error(err.error?.message || "Failed to create variation");
+      }
+      const data = await res.json();
+      if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+        setError("No variation images returned.");
+        setLoading(false);
+        return;
+      }
+      // Show all returned images in chat (as a grid if n > 1)
+      if (data.data.length === 1) {
+        setChat((prev) => [
+          ...prev,
+          { type: "image", content: data.data[0].url, prompt: "Variation" }
+        ]);
+      } else {
+        setChat((prev) => [
+          ...prev,
+          { type: "image", content: data.data.map(img => img.url), prompt: "Variation" }
+        ]);
+      }
+    } catch (err) {
+      setError(err.message || "Error creating variation.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -287,13 +394,15 @@ export default function App() {
     }
   }
 
-  function handleExpand(idx) {
+  function handleExpand(idx, imageIdx = null) {
     setExpandedIdx(idx);
+    setExpandedImageIdx(imageIdx);
     document.body.style.overflow = "hidden";
   }
 
   function handleCloseExpand() {
     setExpandedIdx(null);
+    setExpandedImageIdx(null);
     document.body.style.overflow = "";
   }
 
@@ -338,43 +447,82 @@ export default function App() {
                   <div className="flex flex-col items-start animate-slide-in-left">
                     <div className="flex items-center mb-1 gap-2">
                       <BotLogo />
-                      <img
-                        src={msg.content}
-                        alt="Generated"
-                        className="rounded-2xl shadow-lg"
-                        style={{ maxWidth: 280, maxHeight: 280 }}
-                      />
+                      {/* Support single or multiple images */}
+                      {Array.isArray(msg.content) ? (
+                        <div className="flex flex-wrap gap-2">
+                          {msg.content.map((imgUrl, i) => (
+                            <div key={i} className="flex flex-col items-center">
+                              <img
+                                src={imgUrl}
+                                alt={`Variation ${i + 1}`}
+                                className="rounded-2xl shadow-lg"
+                                style={{ maxWidth: 140, maxHeight: 140 }}
+                              />
+                              <div className="flex gap-1 mt-1">
+                                <button
+                                  className="flex items-center justify-center p-1 rounded-lg bg-purple-100 hover:bg-purple-200 transition-colors text-purple-700 shadow"
+                                  onClick={() => handleDownload(imgUrl)}
+                                  title="Download"
+                                  type="button"
+                                  style={{ width: 28, height: 28 }}
+                                >
+                                  <Download size={16} />
+                                </button>
+                                <button
+                                  className="flex items-center justify-center p-1 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 shadow"
+                                  onClick={() => handleExpand(idx, i)}
+                                  title="Expand"
+                                  type="button"
+                                  style={{ width: 28, height: 28 }}
+                                >
+                                  <Maximize2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <img
+                          src={msg.content}
+                          alt="Generated"
+                          className="rounded-2xl shadow-lg"
+                          style={{ maxWidth: 280, maxHeight: 280 }}
+                        />
+                      )}
                     </div>
-                    <div className="flex gap-2 mt-1 ml-10">
-                      <button
-                        className="flex items-center justify-center p-2 rounded-lg bg-purple-100 hover:bg-purple-200 transition-colors text-purple-700 shadow"
-                        onClick={() => handleDownload(msg.content)}
-                        title="Download"
-                        type="button"
-                        style={{ width: 36, height: 36 }}
-                      >
-                        <Download size={20} />
-                      </button>
-                      <button
-                        className="flex items-center justify-center p-2 rounded-lg bg-pink-100 hover:bg-pink-200 transition-colors text-pink-700 shadow"
-                        onClick={() => handleRegenerate(msg.prompt, idx)}
-                        title="Regenerate"
-                        type="button"
-                        disabled={loading}
-                        style={{ width: 36, height: 36 }}
-                      >
-                        <RefreshCw size={20} />
-                      </button>
-                      <button
-                        className="flex items-center justify-center p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 shadow"
-                        onClick={() => handleExpand(idx)}
-                        title="Expand"
-                        type="button"
-                        style={{ width: 36, height: 36 }}
-                      >
-                        <Maximize2 size={20} />
-                      </button>
-                    </div>
+                    {/* Download/Regenerate/Expand for single image only */}
+                    {!Array.isArray(msg.content) && (
+                      <div className="flex gap-2 mt-1 ml-10">
+                        <button
+                          className="flex items-center justify-center p-2 rounded-lg bg-purple-100 hover:bg-purple-200 transition-colors text-purple-700 shadow"
+                          onClick={() => handleDownload(msg.content)}
+                          title="Download"
+                          type="button"
+                          style={{ width: 36, height: 36 }}
+                        >
+                          <Download size={20} />
+                        </button>
+                        <button
+                          className="flex items-center justify-center p-2 rounded-lg bg-pink-100 hover:bg-pink-200 transition-colors text-pink-700 shadow"
+                          onClick={() => handleRegenerate(msg.prompt, idx)}
+                          title="Regenerate"
+                          type="button"
+                          disabled={loading}
+                          style={{ width: 36, height: 36 }}
+                        >
+                          <RefreshCw size={20} />
+                        </button>
+                        <button
+                          className="flex items-center justify-center p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 shadow"
+                          onClick={() => handleExpand(idx)}
+                          title="Expand"
+                          type="button"
+                          style={{ width: 36, height: 36 }}
+                        >
+                          <Maximize2 size={20} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center animate-slide-in-right gap-2">
@@ -432,19 +580,78 @@ export default function App() {
             >
               Edit
             </button>
+            <button
+              type="button"
+              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${
+                mode === "variation"
+                  ? "bg-gradient-to-br from-yellow-400 to-pink-400 text-white"
+                  : "bg-white border border-yellow-200 text-yellow-600"
+              }`}
+              onClick={() => handleModeChange("variation")}
+              disabled={loading}
+            >
+              Variation
+            </button>
           </div>
-          {/* Prompt Input */}
-          <input
-            className="flex-1 bg-transparent outline-none text-purple-700 placeholder-purple-300 text-lg px-2 py-2 mb-1"
-            placeholder={
-              mode === "generate"
-                ? "Describe the image you want to create..."
-                : "Describe how you want to edit the image..."
-            }
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            disabled={loading}
-          />
+          {/* Prompt Input (not for variation) */}
+          {mode !== "variation" && (
+            <input
+              className="flex-1 bg-transparent outline-none text-purple-700 placeholder-purple-300 text-lg px-2 py-2 mb-1"
+              placeholder={
+                mode === "generate"
+                  ? "Describe the image you want to create..."
+                  : "Describe how you want to edit the image..."
+              }
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              disabled={loading}
+            />
+          )}
+          {/* Variation Mode Fields */}
+          {mode === "variation" && (
+            <div className="flex flex-col md:flex-row gap-2 items-center mb-1">
+              <label className="text-yellow-600 font-medium">
+                Image for Variation:
+                <input
+                  type="file"
+                  accept="image/png"
+                  onChange={handleVariationImageUpload}
+                  disabled={loading}
+                  className="ml-2"
+                />
+              </label>
+              {variationImage && (
+                <span className="text-xs text-green-600 ml-2 animate-fade-in">
+                  {variationImage.name}
+                </span>
+              )}
+              <label className="text-yellow-600 font-medium ml-4">
+                Number of Variations:
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={variationN}
+                  onChange={e => setVariationN(Number(e.target.value))}
+                  disabled={loading}
+                  className="ml-2 w-16 px-2 py-1 rounded border border-yellow-200"
+                />
+              </label>
+              <label className="text-yellow-600 font-medium ml-4">
+                Size:
+                <select
+                  value={variationSize}
+                  onChange={e => setVariationSize(e.target.value)}
+                  disabled={loading}
+                  className="ml-2 px-2 py-1 rounded border border-yellow-200"
+                >
+                  <option value="256x256">256x256</option>
+                  <option value="512x512">512x512</option>
+                  <option value="1024x1024">1024x1024</option>
+                </select>
+              </label>
+            </div>
+          )}
           {/* Image Upload (Edit mode) */}
           {mode === "edit" && (
             <div className="flex flex-col md:flex-row gap-2 items-center mb-1">
@@ -596,17 +803,32 @@ export default function App() {
             >
               <X size={28} />
             </button>
-            <img
-              src={chat[expandedIdx].content}
-              alt="Expanded"
-              className="rounded-2xl shadow-2xl animate-zoom-in"
-              style={{
-                maxWidth: "90vw",
-                maxHeight: "80vh",
-                border: "4px solid #a78bfa",
-                background: "#fff",
-              }}
-            />
+            {/* Expanded image logic: support single or multi-image */}
+            {Array.isArray(chat[expandedIdx].content) && expandedImageIdx !== null ? (
+              <img
+                src={chat[expandedIdx].content[expandedImageIdx]}
+                alt="Expanded"
+                className="rounded-2xl shadow-2xl animate-zoom-in"
+                style={{
+                  maxWidth: "90vw",
+                  maxHeight: "80vh",
+                  border: "4px solid #a78bfa",
+                  background: "#fff",
+                }}
+              />
+            ) : (
+              <img
+                src={chat[expandedIdx].content}
+                alt="Expanded"
+                className="rounded-2xl shadow-2xl animate-zoom-in"
+                style={{
+                  maxWidth: "90vw",
+                  maxHeight: "80vh",
+                  border: "4px solid #a78bfa",
+                  background: "#fff",
+                }}
+              />
+            )}
           </div>
           <style>
             {`
