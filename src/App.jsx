@@ -46,10 +46,26 @@ export default function App() {
   const [input, setInput] = useState("");
   const [uploadedImage, setUploadedImage] = useState(null); // For edit
   const [maskImage, setMaskImage] = useState(null); // For edit
+
+  // GENERATE mode options
+  const [genModel, setGenModel] = useState("dall-e-2"); // dall-e-2 | dall-e-3 | gpt-image-1
+  const [genN, setGenN] = useState(1);
+  const [genSize, setGenSize] = useState("1024x1024");
+  const [genQuality, setGenQuality] = useState("auto");
+  const [genBackground, setGenBackground] = useState("auto");
+  const [genOutputFormat, setGenOutputFormat] = useState("png");
+  const [genOutputCompression, setGenOutputCompression] = useState(100);
+  const [genModeration, setGenModeration] = useState("auto");
+  const [genResponseFormat, setGenResponseFormat] = useState("url");
+  const [genStyle, setGenStyle] = useState("vivid");
+  const [genUser, setGenUser] = useState("");
+
+  // EDIT mode options
   const [model, setModel] = useState("dall-e-2"); // For edit
   const [background, setBackground] = useState("auto"); // For edit (gpt-image-1)
   const [quality, setQuality] = useState("auto"); // For edit (gpt-image-1)
   const [size, setSize] = useState("1024x1024"); // For edit/generate
+
   const [formError, setFormError] = useState("");
   // Variation mode state
   const [variationImage, setVariationImage] = useState(null); // File for variation
@@ -60,6 +76,7 @@ export default function App() {
   const [chat, setChat] = useState([]);
   const [expandedIdx, setExpandedIdx] = useState(null);
   const [expandedImageIdx, setExpandedImageIdx] = useState(null); // For multi-image expand
+  const [showAdvanced, setShowAdvanced] = useState(false); // For advanced options dropdown
   const chatEndRef = useRef(null);
 
   const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
@@ -74,43 +91,87 @@ export default function App() {
     setLoading(true);
     setError("");
     try {
+      // Build request body based on selected model and options
+      const body = {
+        prompt,
+        model: genModel,
+        n: genN,
+        size: genSize,
+      };
+      // Quality
+      if (
+        (genModel === "gpt-image-1" && genQuality !== "auto") ||
+        (genModel === "dall-e-3" && genQuality !== "auto") ||
+        (genModel === "dall-e-2" && genQuality === "standard")
+      ) {
+        body.quality = genQuality;
+      }
+      // Background (gpt-image-1)
+      if (genModel === "gpt-image-1") {
+        body.background = genBackground;
+        body.output_format = genOutputFormat;
+        if ((genOutputFormat === "jpeg" || genOutputFormat === "webp") && genOutputCompression !== 100) {
+          body.output_compression = genOutputCompression;
+        }
+        body.moderation = genModeration;
+      }
+      // Response format (dall-e-2, dall-e-3)
+      if ((genModel === "dall-e-2" || genModel === "dall-e-3") && genResponseFormat) {
+        body.response_format = genResponseFormat;
+      }
+      // Style (dall-e-3)
+      if (genModel === "dall-e-3") {
+        body.style = genStyle;
+      }
+      // User
+      if (genUser && genUser.trim().length > 0) {
+        body.user = genUser.trim();
+      }
+
       const res = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${OPENAI_API_KEY}`,
         },
-        body: JSON.stringify({
-          model: "gpt-image-1",
-          prompt,
-          n: 1,
-          size: "1024x1024",
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error?.message || "Failed to generate image");
       }
       const data = await res.json();
-      console.log(data);
-
-      const b64 = data.data?.[0]?.b64_json;
-      if (b64) {
-        const imageUrl = `data:image/png;base64,${b64}`;
+      // Parse response: url or b64_json, single or multiple images
+      let images = [];
+      if (data.data && Array.isArray(data.data)) {
+        for (const img of data.data) {
+          if (img.url) images.push(img.url);
+          else if (img.b64_json) images.push(`data:image/png;base64,${img.b64_json}`);
+        }
+      }
+      if (images.length === 0) {
+        setError("No image returned.");
+        setLoading(false);
+        return;
+      }
+      if (images.length === 1) {
         if (isRegenerate && imageIdx !== null) {
           setChat((prev) => {
             const updated = [...prev];
-            updated[imageIdx] = { type: "image", content: imageUrl, prompt };
+            updated[imageIdx] = { type: "image", content: images[0], prompt };
             return updated;
           });
         } else {
           setChat((prev) => [
             ...prev,
-            { type: "image", content: imageUrl, prompt }
+            { type: "image", content: images[0], prompt }
           ]);
         }
       } else {
-        setError("No image returned.");
+        setChat((prev) => [
+          ...prev,
+          { type: "image", content: images, prompt }
+        ]);
       }
     } catch (err) {
       setError(err.message || "Error generating image.");
@@ -127,10 +188,26 @@ export default function App() {
     // Reset all form fields on mode change
     setUploadedImage(null);
     setMaskImage(null);
+
+    // Reset GENERATE options
+    setGenModel("dall-e-2");
+    setGenN(1);
+    setGenSize("1024x1024");
+    setGenQuality("auto");
+    setGenBackground("auto");
+    setGenOutputFormat("png");
+    setGenOutputCompression(100);
+    setGenModeration("auto");
+    setGenResponseFormat("url");
+    setGenStyle("vivid");
+    setGenUser("");
+
+    // Reset EDIT options
     setModel("dall-e-2");
     setBackground("auto");
     setQuality("auto");
     setSize("1024x1024");
+
     setInput("");
     setVariationImage(null);
     setVariationN(1);
@@ -593,19 +670,238 @@ export default function App() {
               Variation
             </button>
           </div>
-          {/* Prompt Input (not for variation) */}
-          {mode !== "variation" && (
-            <input
-              className="flex-1 bg-transparent outline-none text-purple-700 placeholder-purple-300 text-lg px-2 py-2 mb-1"
-              placeholder={
-                mode === "generate"
-                  ? "Describe the image you want to create..."
-                  : "Describe how you want to edit the image..."
-              }
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              disabled={loading}
-            />
+          {/* Generate Mode Fields */}
+          {mode === "generate" && (
+            <div className="flex flex-col gap-2 mb-1">
+              {/* Model Selection */}
+              <label className="text-purple-500 font-medium">
+                Model:
+                <select
+                  value={genModel}
+                  onChange={e => setGenModel(e.target.value)}
+                  disabled={loading}
+                  className="ml-2 px-2 py-1 rounded border border-purple-200"
+                >
+                  <option value="dall-e-2">dall-e-2</option>
+                  <option value="dall-e-3">dall-e-3</option>
+                  <option value="gpt-image-1">gpt-image-1</option>
+                </select>
+              </label>
+              {/* Prompt */}
+              <input
+                className="flex-1 bg-transparent outline-none text-purple-700 placeholder-purple-300 text-lg px-2 py-2"
+                placeholder="Describe the image you want to create..."
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                maxLength={
+                  genModel === "gpt-image-1"
+                    ? 32000
+                    : genModel === "dall-e-3"
+                    ? 4000
+                    : 1000
+                }
+                disabled={loading}
+              />
+              {/* Background (gpt-image-1 only) */}
+              {genModel === "gpt-image-1" && (
+                <label className="text-purple-500 font-medium">
+                  Background:
+                  <select
+                    value={genBackground}
+                    onChange={e => setGenBackground(e.target.value)}
+                    disabled={loading}
+                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                  >
+                    <option value="auto">auto</option>
+                    <option value="transparent">transparent</option>
+                    <option value="opaque">opaque</option>
+                  </select>
+                </label>
+              )}
+              {/* Output Format (gpt-image-1 only) */}
+              {genModel === "gpt-image-1" && (
+                <label className="text-purple-500 font-medium">
+                  Output Format:
+                  <select
+                    value={genOutputFormat}
+                    onChange={e => setGenOutputFormat(e.target.value)}
+                    disabled={loading}
+                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                  >
+                    <option value="png">png</option>
+                    <option value="jpeg">jpeg</option>
+                    <option value="webp">webp</option>
+                  </select>
+                </label>
+              )}
+              {/* Output Compression (gpt-image-1 + jpeg/webp only) */}
+              {genModel === "gpt-image-1" && (genOutputFormat === "jpeg" || genOutputFormat === "webp") && (
+                <label className="text-purple-500 font-medium">
+                  Output Compression:
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={genOutputCompression}
+                    onChange={e => setGenOutputCompression(Number(e.target.value))}
+                    disabled={loading}
+                    className="ml-2 w-16 px-2 py-1 rounded border border-purple-200"
+                  />
+                  <span className="ml-1 text-xs text-purple-400">%</span>
+                </label>
+              )}
+              {/* Moderation (gpt-image-1 only) */}
+              {genModel === "gpt-image-1" && (
+                <label className="text-purple-500 font-medium">
+                  Moderation:
+                  <select
+                    value={genModeration}
+                    onChange={e => setGenModeration(e.target.value)}
+                    disabled={loading}
+                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                  >
+                    <option value="auto">auto</option>
+                    <option value="low">low</option>
+                  </select>
+                </label>
+              )}
+              {/* Style (dall-e-3 only) */}
+              {genModel === "dall-e-3" && (
+                <label className="text-purple-500 font-medium">
+                  Style:
+                  <select
+                    value={genStyle}
+                    onChange={e => setGenStyle(e.target.value)}
+                    disabled={loading}
+                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                  >
+                    <option value="vivid">vivid</option>
+                    <option value="natural">natural</option>
+                  </select>
+                </label>
+              )}
+              {/* Advanced Options Dropdown */}
+              <div>
+                <button
+                  type="button"
+                  className="text-purple-600 font-semibold underline text-sm mb-1"
+                  onClick={() => setShowAdvanced((v) => !v)}
+                  style={{ outline: "none" }}
+                >
+                  {showAdvanced ? "Hide" : "Show"} Advanced Options
+                </button>
+                {showAdvanced && (
+                  <div className="flex flex-col gap-2 p-3 rounded-xl border border-purple-100 bg-purple-50/40 shadow-inner mt-1">
+                    {/* Number of Images */}
+                    <label className="text-purple-500 font-medium">
+                      Number of Images:
+                      <input
+                        type="number"
+                        min={1}
+                        max={genModel === "dall-e-3" ? 1 : 10}
+                        value={genN}
+                        onChange={e => setGenN(Number(e.target.value))}
+                        disabled={loading}
+                        className="ml-2 w-16 px-2 py-1 rounded border border-purple-200"
+                      />
+                    </label>
+                    {/* Size */}
+                    <label className="text-purple-500 font-medium">
+                      Size:
+                      <select
+                        value={genSize}
+                        onChange={e => setGenSize(e.target.value)}
+                        disabled={loading}
+                        className="ml-2 px-2 py-1 rounded border border-purple-200"
+                      >
+                        {genModel === "gpt-image-1" && (
+                          <>
+                            <option value="1024x1024">1024x1024</option>
+                            <option value="1536x1024">1536x1024 (landscape)</option>
+                            <option value="1024x1536">1024x1536 (portrait)</option>
+                            <option value="auto">auto</option>
+                          </>
+                        )}
+                        {genModel === "dall-e-2" && (
+                          <>
+                            <option value="256x256">256x256</option>
+                            <option value="512x512">512x512</option>
+                            <option value="1024x1024">1024x1024</option>
+                          </>
+                        )}
+                        {genModel === "dall-e-3" && (
+                          <>
+                            <option value="1024x1024">1024x1024</option>
+                            <option value="1792x1024">1792x1024 (landscape)</option>
+                            <option value="1024x1792">1024x1792 (portrait)</option>
+                          </>
+                        )}
+                      </select>
+                    </label>
+                    {/* Quality */}
+                    {(genModel === "gpt-image-1" || genModel === "dall-e-3" || genModel === "dall-e-2") && (
+                      <label className="text-purple-500 font-medium">
+                        Quality:
+                        <select
+                          value={genQuality}
+                          onChange={e => setGenQuality(e.target.value)}
+                          disabled={loading}
+                          className="ml-2 px-2 py-1 rounded border border-purple-200"
+                        >
+                          {genModel === "gpt-image-1" && (
+                            <>
+                              <option value="auto">auto</option>
+                              <option value="high">high</option>
+                              <option value="medium">medium</option>
+                              <option value="low">low</option>
+                            </>
+                          )}
+                          {genModel === "dall-e-3" && (
+                            <>
+                              <option value="auto">auto</option>
+                              <option value="hd">hd</option>
+                              <option value="standard">standard</option>
+                            </>
+                          )}
+                          {genModel === "dall-e-2" && (
+                            <>
+                              <option value="standard">standard</option>
+                            </>
+                          )}
+                        </select>
+                      </label>
+                    )}
+                    {/* Response Format (dall-e-2, dall-e-3 only) */}
+                    {(genModel === "dall-e-2" || genModel === "dall-e-3") && (
+                      <label className="text-purple-500 font-medium">
+                        Response Format:
+                        <select
+                          value={genResponseFormat}
+                          onChange={e => setGenResponseFormat(e.target.value)}
+                          disabled={loading}
+                          className="ml-2 px-2 py-1 rounded border border-purple-200"
+                        >
+                          <option value="url">url</option>
+                          <option value="b64_json">b64_json</option>
+                        </select>
+                      </label>
+                    )}
+                    {/* User (optional) */}
+                    <label className="text-purple-500 font-medium">
+                      User (optional):
+                      <input
+                        type="text"
+                        value={genUser}
+                        onChange={e => setGenUser(e.target.value)}
+                        disabled={loading}
+                        className="ml-2 px-2 py-1 rounded border border-purple-200"
+                        placeholder="user id"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
           {/* Variation Mode Fields */}
           {mode === "variation" && (
