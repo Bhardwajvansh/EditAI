@@ -41,14 +41,19 @@ const BotLogo = () => (
 );
 
 export default function App() {
-  // New state for mode, uploads, model, and options
-  const [mode, setMode] = useState("generate"); // "generate" | "edit" | "variation"
+  const [mode, setMode] = useState("generate");
   const [input, setInput] = useState("");
-  const [uploadedImage, setUploadedImage] = useState(null); // For edit
-  const [maskImage, setMaskImage] = useState(null); // For edit
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [maskImage, setMaskImage] = useState(null);
+  const [showMaskEditor, setShowMaskEditor] = useState(false);
+  const [maskCanvasUrl, setMaskCanvasUrl] = useState(null);
+  const [maskBrush, setMaskBrush] = useState("brush");
+  const [maskBrushSize, setMaskBrushSize] = useState(24);
+  const maskCanvasRef = useRef(null);
+  const maskDrawing = useRef(false);
+  const [maskDrawColor, setMaskDrawColor] = useState("rgba(255,0,0,0.7)");
 
-  // GENERATE mode options
-  const [genModel, setGenModel] = useState("dall-e-2"); // dall-e-2 | dall-e-3 | gpt-image-1
+  const [genModel, setGenModel] = useState("dall-e-2");
   const [genN, setGenN] = useState(1);
   const [genSize, setGenSize] = useState("1024x1024");
   const [genQuality, setGenQuality] = useState("auto");
@@ -60,23 +65,21 @@ export default function App() {
   const [genStyle, setGenStyle] = useState("vivid");
   const [genUser, setGenUser] = useState("");
 
-  // EDIT mode options
-  const [model, setModel] = useState("dall-e-2"); // For edit
-  const [background, setBackground] = useState("auto"); // For edit (gpt-image-1)
-  const [quality, setQuality] = useState("auto"); // For edit (gpt-image-1)
-  const [size, setSize] = useState("1024x1024"); // For edit/generate
+  const [model, setModel] = useState("dall-e-2");
+  const [background, setBackground] = useState("auto");
+  const [quality, setQuality] = useState("auto");
+  const [size, setSize] = useState("1024x1024");
 
   const [formError, setFormError] = useState("");
-  // Variation mode state
-  const [variationImage, setVariationImage] = useState(null); // File for variation
-  const [variationN, setVariationN] = useState(1); // Number of variations
-  const [variationSize, setVariationSize] = useState("1024x1024"); // Size for variation
+  const [variationImage, setVariationImage] = useState(null);
+  const [variationN, setVariationN] = useState(1);
+  const [variationSize, setVariationSize] = useState("1024x1024");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [chat, setChat] = useState([]);
   const [expandedIdx, setExpandedIdx] = useState(null);
-  const [expandedImageIdx, setExpandedImageIdx] = useState(null); // For multi-image expand
-  const [showAdvanced, setShowAdvanced] = useState(false); // For advanced options dropdown
+  const [expandedImageIdx, setExpandedImageIdx] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const chatEndRef = useRef(null);
 
   const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
@@ -670,6 +673,25 @@ export default function App() {
               Variation
             </button>
           </div>
+          {/* Prompt Input (for generate and edit modes) */}
+          {(mode === "generate" || mode === "edit") && (
+            <input
+              className="flex-1 bg-transparent outline-none text-purple-700 placeholder-purple-300 text-lg px-2 py-2 mb-1"
+              placeholder={
+                mode === "generate"
+                  ? "Describe the image you want to create..."
+                  : "Describe how you want to edit the image..."
+              }
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              maxLength={
+                (mode === "generate" && genModel === "gpt-image-1") ? 32000 :
+                (mode === "generate" && genModel === "dall-e-3") ? 4000 :
+                1000
+              }
+              disabled={loading}
+            />
+          )}
           {/* Generate Mode Fields */}
           {mode === "generate" && (
             <div className="flex flex-col gap-2 mb-1">
@@ -687,21 +709,6 @@ export default function App() {
                   <option value="gpt-image-1">gpt-image-1</option>
                 </select>
               </label>
-              {/* Prompt */}
-              <input
-                className="flex-1 bg-transparent outline-none text-purple-700 placeholder-purple-300 text-lg px-2 py-2"
-                placeholder="Describe the image you want to create..."
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                maxLength={
-                  genModel === "gpt-image-1"
-                    ? 32000
-                    : genModel === "dall-e-3"
-                    ? 4000
-                    : 1000
-                }
-                disabled={loading}
-              />
               {/* Background (gpt-image-1 only) */}
               {genModel === "gpt-image-1" && (
                 <label className="text-purple-500 font-medium">
@@ -966,19 +973,20 @@ export default function App() {
                   {uploadedImage.name}
                 </span>
               )}
-              <label className="text-pink-500 font-medium ml-4">
-                Mask (optional):
-                <input
-                  type="file"
-                  accept="image/png"
-                  onChange={handleMaskUpload}
+              {/* Mask Editor Button */}
+              {uploadedImage && (
+                <button
+                  type="button"
+                  className="ml-4 px-3 py-1 rounded-lg bg-pink-100 hover:bg-pink-200 text-pink-700 font-semibold shadow transition-colors"
+                  onClick={() => setShowMaskEditor(true)}
                   disabled={loading}
-                  className="ml-2"
-                />
-              </label>
-              {maskImage && (
-                <span className="text-xs text-green-600 ml-2 animate-fade-in">
-                  {maskImage.name}
+                >
+                  {maskCanvasUrl ? "Edit Mask" : "Draw Mask"}
+                </button>
+              )}
+              {maskCanvasUrl && (
+                <span className="text-xs text-pink-600 ml-2 animate-fade-in">
+                  Mask ready
                 </span>
               )}
             </div>
@@ -1084,6 +1092,24 @@ export default function App() {
           </div>
         </form>
       </div>
+
+      {/* Mask Editor Modal */}
+      {showMaskEditor && uploadedImage && (
+        <MaskEditorModal
+          imageFile={uploadedImage}
+          onClose={() => setShowMaskEditor(false)}
+          onSaveMask={(maskUrl, maskFile) => {
+            setMaskCanvasUrl(maskUrl);
+            setMaskImage(maskFile);
+            setShowMaskEditor(false);
+          }}
+          brush={maskBrush}
+          setBrush={setMaskBrush}
+          brushSize={maskBrushSize}
+          setBrushSize={setMaskBrushSize}
+        />
+      )}
+
       {expandedIdx !== null && chat[expandedIdx] && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in-fast"
@@ -1200,6 +1226,292 @@ export default function App() {
         }
         `}
       </style>
+    </div>
+  );
+}
+
+// MaskEditorModal Component
+function MaskEditorModal({
+  imageFile,
+  onClose,
+  onSaveMask,
+  brush,
+  setBrush,
+  brushSize,
+  setBrushSize
+}) {
+  const [img, setImg] = useState(null);
+  const [canvasDims, setCanvasDims] = useState({ width: 0, height: 0 });
+  const canvasRef = useRef(null);
+  const drawing = useRef(false);
+
+  useEffect(() => {
+    if (!imageFile) return;
+    const reader = new FileReader();
+    reader.onload = function (ev) {
+      const image = new window.Image();
+      image.onload = function () {
+        setImg(image);
+        setCanvasDims({ width: image.width, height: image.height });
+      };
+      image.src = ev.target.result;
+    };
+    reader.readAsDataURL(imageFile);
+  }, [imageFile]);
+
+  const lastPoint = useRef(null);
+  function getCtx() {
+    return canvasRef.current?.getContext("2d");
+  }
+  function handlePointerDown(e) {
+    drawing.current = true;
+    lastPoint.current = getPointerPos(e);
+    drawAt(e, true);
+  }
+  function handlePointerMove(e) {
+    if (!drawing.current) return;
+    drawAt(e, false);
+  }
+  function handlePointerUp() {
+    drawing.current = false;
+    lastPoint.current = null;
+  }
+  function getPointerPos(e) {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = ((e.touches ? e.touches[0].clientX : e.clientX) - rect.left) * (canvasRef.current.width / rect.width);
+    const y = ((e.touches ? e.touches[0].clientY : e.clientY) - rect.top) * (canvasRef.current.height / rect.height);
+    return { x, y };
+  }
+  function drawAt(e, isStart) {
+    const ctx = getCtx();
+    const { x, y } = getPointerPos(e);
+    ctx.save();
+    ctx.globalCompositeOperation = brush === "brush" ? "source-over" : "destination-out";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = brush === "brush" ? "rgba(255,0,0,1)" : "rgba(0,0,0,0)";
+    ctx.lineWidth = brushSize;
+    if (isStart || !lastPoint.current) {
+      ctx.beginPath();
+      ctx.arc(x, y, brushSize / 2, 0, 2 * Math.PI);
+      ctx.fillStyle = brush === "brush" ? "rgba(255,0,0,1)" : "rgba(0,0,0,0)";
+      ctx.shadowColor = "rgba(255,0,0,0.2)";
+      ctx.shadowBlur = brush === "brush" ? 4 : 0;
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(lastPoint.current.x, lastPoint.current.y);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+    lastPoint.current = { x, y };
+  }
+  function handleClear() {
+    const ctx = getCtx();
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+  }
+  function handleSave() {
+    canvasRef.current.toBlob(
+      (blob) => {
+        const url = canvasRef.current.toDataURL("image/png");
+        const file = new File([blob], "mask.png", { type: "image/png" });
+        onSaveMask(url, file);
+      },
+      "image/png"
+    );
+  }
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(0,0,0,0.5)",
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: "1.5rem",
+          boxShadow: "0 8px 32px rgba(80,0,120,0.18)",
+          padding: "2rem",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          minWidth: 340,
+          minHeight: 340,
+          maxWidth: "96vw",
+          maxHeight: "96vh"
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            background: "#fff",
+            borderRadius: "50%",
+            border: "none",
+            boxShadow: "0 1px 4px #a78bfa33",
+            width: 40,
+            height: 40,
+            cursor: "pointer",
+            zIndex: 10
+          }}
+          title="Close"
+        >
+          <X size={28} />
+        </button>
+        <div
+          style={{
+            marginBottom: 24,
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "min(90vw, 600px)",
+            height: "min(70vh, 600px)"
+          }}
+        >
+          {img && (
+            <>
+              <img
+                src={img.src}
+                alt="To Edit"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  borderRadius: "1rem",
+                  boxShadow: "0 2px 12px #a78bfa33",
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  zIndex: 1
+                }}
+              />
+              <canvas
+                ref={canvasRef}
+                width={img.width}
+                height={img.height}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: "1rem",
+                  boxShadow: "0 2px 12px #a78bfa33",
+                  cursor: brush === "brush" ? "crosshair" : "not-allowed",
+                  zIndex: 2,
+                  pointerEvents: "auto"
+                }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerUp}
+                onTouchStart={handlePointerDown}
+                onTouchMove={handlePointerMove}
+                onTouchEnd={handlePointerUp}
+              />
+            </>
+          )}
+        </div>
+        <div className="mask-toolbar" style={{
+          marginTop: 8,
+          display: "flex",
+          gap: 16,
+          alignItems: "center",
+          flexWrap: "wrap",
+          justifyContent: "center"
+        }}>
+          <button
+            className={brush === "brush" ? "active" : ""}
+            onClick={() => setBrush("brush")}
+            type="button"
+            style={{
+              padding: "0.5rem 1.2rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: brush === "brush" ? "#a78bfa" : "#f3e8ff",
+              color: brush === "brush" ? "#fff" : "#7c3aed",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            Brush
+          </button>
+          <button
+            className={brush === "eraser" ? "active" : ""}
+            onClick={() => setBrush("eraser")}
+            type="button"
+            style={{
+              padding: "0.5rem 1.2rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: brush === "eraser" ? "#a78bfa" : "#f3e8ff",
+              color: brush === "eraser" ? "#fff" : "#7c3aed",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            Eraser
+          </button>
+          <label style={{ color: "#a78bfa", fontWeight: 500 }}>
+            Size:
+            <input
+              type="range"
+              min={8}
+              max={64}
+              value={brushSize}
+              onChange={e => setBrushSize(Number(e.target.value))}
+              style={{ marginLeft: 8, verticalAlign: "middle" }}
+            />
+            <span style={{ marginLeft: 4 }}>{brushSize}px</span>
+          </label>
+          <button
+            onClick={handleClear}
+            type="button"
+            style={{
+              padding: "0.5rem 1.2rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "#f3e8ff",
+              color: "#7c3aed",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            Clear
+          </button>
+          <button
+            style={{
+              background: "#a78bfa",
+              color: "#fff",
+              padding: "0.5rem 1.2rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+            onClick={handleSave}
+            type="button"
+          >
+            Save Mask
+          </button>
+        </div>
+        <div className="text-xs text-purple-400 mt-2" style={{ maxWidth: 400, textAlign: "center" }}>
+          <b>How to use:</b> Mark the areas to edit with the brush. Use eraser to remove mask. The mask will be transparent where not marked. Click "Save Mask" when done.
+        </div>
+      </div>
     </div>
   );
 }
