@@ -41,7 +41,16 @@ const BotLogo = () => (
 );
 
 export default function App() {
+  // New state for mode, uploads, model, and options
+  const [mode, setMode] = useState("generate"); // "generate" or "edit"
   const [input, setInput] = useState("");
+  const [uploadedImage, setUploadedImage] = useState(null); // File or array of Files
+  const [maskImage, setMaskImage] = useState(null); // File
+  const [model, setModel] = useState("dall-e-2"); // "dall-e-2" or "gpt-image-1"
+  const [background, setBackground] = useState("auto"); // For gpt-image-1
+  const [quality, setQuality] = useState("auto"); // For gpt-image-1
+  const [size, setSize] = useState("1024x1024"); // Default size
+  const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [chat, setChat] = useState([]);
@@ -105,11 +114,40 @@ export default function App() {
     }
   }
 
-  async function handleGenerateImage(e) {
+  // Mode toggle handler
+  function handleModeChange(newMode) {
+    setMode(newMode);
+    setFormError("");
+    setError("");
+    setUploadedImage(null);
+    setMaskImage(null);
+    setModel("dall-e-2");
+    setBackground("auto");
+    setQuality("auto");
+    setSize("1024x1024");
+  }
+
+  // File input handlers
+  function handleImageUpload(e) {
+    const file = e.target.files[0];
+    setUploadedImage(file);
+  }
+  function handleMaskUpload(e) {
+    const file = e.target.files[0];
+    setMaskImage(file);
+  }
+
+  // Unified form submit handler
+  async function handleFormSubmit(e) {
     e.preventDefault();
+    setFormError("");
     setError("");
     if (!input.trim()) {
-      setError("Please enter a prompt.");
+      setFormError("Please enter a prompt.");
+      return;
+    }
+    if (mode === "edit" && !uploadedImage) {
+      setFormError("Please upload an image to edit.");
       return;
     }
     setChat((prev) => [
@@ -117,7 +155,118 @@ export default function App() {
       { type: "user", content: input }
     ]);
     setInput("");
-    await generateImage(input, false, null);
+    if (mode === "generate") {
+      await generateImage(input, false, null);
+    } else {
+      await editImage(input);
+    }
+  }
+
+  // Image Edit API integration
+  async function editImage(prompt) {
+    setLoading(true);
+    setError("");
+    try {
+      // Validate file types and sizes
+      if (model === "dall-e-2") {
+        if (uploadedImage.type !== "image/png") {
+          setFormError("dall-e-2 requires a PNG image.");
+          setLoading(false);
+          return;
+        }
+        if (uploadedImage.size > 4 * 1024 * 1024) {
+          setFormError("dall-e-2 image must be less than 4MB.");
+          setLoading(false);
+          return;
+        }
+        if (maskImage && maskImage.type !== "image/png") {
+          setFormError("Mask must be a PNG file.");
+          setLoading(false);
+          return;
+        }
+        if (maskImage && maskImage.size > 4 * 1024 * 1024) {
+          setFormError("Mask must be less than 4MB.");
+          setLoading(false);
+          return;
+        }
+      } else if (model === "gpt-image-1") {
+        const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+        if (!allowedTypes.includes(uploadedImage.type)) {
+          setFormError("gpt-image-1 supports PNG, JPG, or WEBP images.");
+          setLoading(false);
+          return;
+        }
+        if (uploadedImage.size > 25 * 1024 * 1024) {
+          setFormError("gpt-image-1 image must be less than 25MB.");
+          setLoading(false);
+          return;
+        }
+        if (maskImage && maskImage.type !== "image/png") {
+          setFormError("Mask must be a PNG file.");
+          setLoading(false);
+          return;
+        }
+        if (maskImage && maskImage.size > 4 * 1024 * 1024) {
+          setFormError("Mask must be less than 4MB.");
+          setLoading(false);
+          return;
+        }
+      }
+
+      const formData = new FormData();
+      formData.append("image", uploadedImage);
+      if (maskImage) formData.append("mask", maskImage);
+      formData.append("prompt", prompt);
+      formData.append("model", model);
+      formData.append("size", size);
+
+      if (model === "gpt-image-1") {
+        formData.append("background", background);
+        formData.append("quality", quality);
+        // gpt-image-1 always returns base64
+      } else {
+        // dall-e-2: allow user to choose url or b64_json? For now, use url for smaller payloads
+        formData.append("response_format", "url");
+      }
+
+      const res = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let err;
+        try {
+          err = await res.json();
+        } catch {
+          err = { error: { message: "Failed to edit image" } };
+        }
+        throw new Error(err.error?.message || "Failed to edit image");
+      }
+      const data = await res.json();
+      // Handle both url and b64_json responses
+      let imageUrl = "";
+      if (data.data?.[0]?.url) {
+        imageUrl = data.data[0].url;
+      } else if (data.data?.[0]?.b64_json) {
+        imageUrl = `data:image/png;base64,${data.data[0].b64_json}`;
+      } else {
+        setError("No image returned.");
+        setLoading(false);
+        return;
+      }
+      setChat((prev) => [
+        ...prev,
+        { type: "image", content: imageUrl, prompt }
+      ]);
+    } catch (err) {
+      setError(err.message || "Error editing image.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleDownload(url) {
@@ -130,7 +279,12 @@ export default function App() {
   }
 
   function handleRegenerate(prompt, idx) {
-    generateImage(prompt, true, idx);
+    if (mode === "generate") {
+      generateImage(prompt, true, idx);
+    } else {
+      // For edit mode, reuse last uploaded image/mask/model/options
+      editImage(prompt);
+    }
   }
 
   function handleExpand(idx) {
@@ -249,29 +403,182 @@ export default function App() {
         )}
 
         <form
-          className="flex items-center bg-white/70 rounded-xl border border-purple-100 px-4 py-2 shadow-inner"
-          onSubmit={handleGenerateImage}
+          className="flex flex-col gap-2 bg-white/70 rounded-xl border border-purple-100 px-4 py-2 shadow-inner"
+          onSubmit={handleFormSubmit}
         >
+          {/* Mode Toggle */}
+          <div className="flex gap-2 mb-2">
+            <button
+              type="button"
+              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${
+                mode === "generate"
+                  ? "bg-gradient-to-br from-purple-400 to-pink-400 text-white"
+                  : "bg-white border border-purple-200 text-purple-500"
+              }`}
+              onClick={() => handleModeChange("generate")}
+              disabled={loading}
+            >
+              Generate
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${
+                mode === "edit"
+                  ? "bg-gradient-to-br from-pink-400 to-purple-400 text-white"
+                  : "bg-white border border-pink-200 text-pink-500"
+              }`}
+              onClick={() => handleModeChange("edit")}
+              disabled={loading}
+            >
+              Edit
+            </button>
+          </div>
+          {/* Prompt Input */}
           <input
-            className="flex-1 bg-transparent outline-none text-purple-700 placeholder-purple-300 text-lg px-2 py-2"
-            placeholder="Describe the image you want to create..."
+            className="flex-1 bg-transparent outline-none text-purple-700 placeholder-purple-300 text-lg px-2 py-2 mb-1"
+            placeholder={
+              mode === "generate"
+                ? "Describe the image you want to create..."
+                : "Describe how you want to edit the image..."
+            }
             value={input}
             onChange={e => setInput(e.target.value)}
             disabled={loading}
           />
-          <button
-            type="submit"
-            className="ml-2 p-2 rounded-lg bg-gradient-to-br from-purple-400 to-pink-400 hover:from-purple-500 hover:to-pink-500 transition-colors duration-200 shadow-md disabled:opacity-60"
-            disabled={loading}
-            tabIndex={-1}
-          >
-            <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
-              <path
-                d="M3 20l18-8-18-8v7l13 1-13 1v7z"
-                fill="#fff"
-              />
-            </svg>
-          </button>
+          {/* Image Upload (Edit mode) */}
+          {mode === "edit" && (
+            <div className="flex flex-col md:flex-row gap-2 items-center mb-1">
+              <label className="text-purple-500 font-medium">
+                Image to Edit:
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleImageUpload}
+                  disabled={loading}
+                  className="ml-2"
+                />
+              </label>
+              {uploadedImage && (
+                <span className="text-xs text-green-600 ml-2 animate-fade-in">
+                  {uploadedImage.name}
+                </span>
+              )}
+              <label className="text-pink-500 font-medium ml-4">
+                Mask (optional):
+                <input
+                  type="file"
+                  accept="image/png"
+                  onChange={handleMaskUpload}
+                  disabled={loading}
+                  className="ml-2"
+                />
+              </label>
+              {maskImage && (
+                <span className="text-xs text-green-600 ml-2 animate-fade-in">
+                  {maskImage.name}
+                </span>
+              )}
+            </div>
+          )}
+          {/* Model Selection (Edit mode) */}
+          {mode === "edit" && (
+            <div className="flex flex-col md:flex-row gap-2 items-center mb-1">
+              <label className="text-purple-500 font-medium">
+                Model:
+                <select
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  disabled={loading}
+                  className="ml-2 px-2 py-1 rounded border border-purple-200"
+                >
+                  <option value="dall-e-2">dall-e-2</option>
+                  <option value="gpt-image-1">gpt-image-1</option>
+                </select>
+              </label>
+              {/* Advanced options for gpt-image-1 */}
+              {model === "gpt-image-1" && (
+                <>
+                  <label className="text-purple-500 font-medium ml-4">
+                    Background:
+                    <select
+                      value={background}
+                      onChange={e => setBackground(e.target.value)}
+                      disabled={loading}
+                      className="ml-2 px-2 py-1 rounded border border-purple-200"
+                    >
+                      <option value="auto">auto</option>
+                      <option value="transparent">transparent</option>
+                      <option value="opaque">opaque</option>
+                    </select>
+                  </label>
+                  <label className="text-purple-500 font-medium ml-4">
+                    Quality:
+                    <select
+                      value={quality}
+                      onChange={e => setQuality(e.target.value)}
+                      disabled={loading}
+                      className="ml-2 px-2 py-1 rounded border border-purple-200"
+                    >
+                      <option value="auto">auto</option>
+                      <option value="high">high</option>
+                      <option value="medium">medium</option>
+                      <option value="low">low</option>
+                    </select>
+                  </label>
+                  <label className="text-purple-500 font-medium ml-4">
+                    Size:
+                    <select
+                      value={size}
+                      onChange={e => setSize(e.target.value)}
+                      disabled={loading}
+                      className="ml-2 px-2 py-1 rounded border border-purple-200"
+                    >
+                      <option value="1024x1024">1024x1024</option>
+                      <option value="1536x1024">1536x1024 (landscape)</option>
+                      <option value="1024x1536">1024x1536 (portrait)</option>
+                      <option value="auto">auto</option>
+                    </select>
+                  </label>
+                </>
+              )}
+              {/* Size for dall-e-2 */}
+              {model === "dall-e-2" && (
+                <label className="text-purple-500 font-medium ml-4">
+                  Size:
+                  <select
+                    value={size}
+                    onChange={e => setSize(e.target.value)}
+                    disabled={loading}
+                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                  >
+                    <option value="256x256">256x256</option>
+                    <option value="512x512">512x512</option>
+                    <option value="1024x1024">1024x1024</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          )}
+          {/* Form Error */}
+          {formError && (
+            <div className="text-red-500 text-center animate-fade-in mb-1">{formError}</div>
+          )}
+          {/* Submit Button */}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-lg bg-gradient-to-br from-purple-400 to-pink-400 hover:from-purple-500 hover:to-pink-500 transition-colors duration-200 shadow-md text-white font-semibold disabled:opacity-60"
+              disabled={loading}
+            >
+              {loading
+                ? mode === "edit"
+                  ? "Editing..."
+                  : "Generating..."
+                : mode === "edit"
+                  ? "Edit Image"
+                  : "Generate Image"}
+            </button>
+          </div>
         </form>
       </div>
       {expandedIdx !== null && chat[expandedIdx] && (
