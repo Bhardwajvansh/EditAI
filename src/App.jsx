@@ -488,32 +488,31 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5f6ff] to-[#fbefff] flex items-center justify-center">
-      <div className="w-full min-h-screen max-w-7xl bg-white/80 rounded-3xl shadow-xl p-8 flex flex-col">
-        <div className="text-center mb-6">
-          <h1 className="text-4xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500 mb-2 animate-fade-in border-2">
+      <div className="w-full min-h-screen max-w-7xl bg-white rounded-sm border border-gray-200 shadow-sm p-4 flex flex-col">
+        <div className="text-center mb-4">
+          <h1 className="text-3xl font-bold text-black mb-1 animate-fade-in">
             EditAI
           </h1>
-          <p className="text-lg text-purple-400 animate-fade-in-slow">
+          <p className="text-sm text-black animate-fade-in-slow">
             Describe an image or select a tool. Your prompts appear on the right, images on the left.
           </p>
         </div>
 
         <div className="flex-1 flex flex-col mb-4">
-          <div
-            className={`flex-1 overflow-y-auto rounded-xl bg-white/60 border border-purple-100 shadow-inner px-4 py-4 chat-scrollbar ${expandedIdx !== null ? "blur-sm pointer-events-none select-none" : ""}`}
+          <div className={`flex-1 overflow-y-auto rounded-sm bg-gray-50 border border-gray-200 shadow-sm px-3 py-3 chat-scrollbar ${expandedIdx !== null ? "blur-sm pointer-events-none select-none" : ""}`}
             style={{ minHeight: 320, maxHeight: 420 }}
           >
             {chat.length === 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
                 {topics.map((topic, idx) => (
                   <div
                     key={topic.title}
-                    className="bg-gradient-to-br from-[#f5f6ff] to-[#fbefff] rounded-xl shadow-md p-6 transition-transform duration-300 hover:scale-105 hover:shadow-lg border border-transparent hover:border-purple-200 animate-fade-in"
+                    className="bg-white rounded-sm shadow-sm p-4 transition-transform duration-300 hover:scale-105 hover:shadow-md border border-gray-200 animate-fade-in"
                     style={{ animationDelay: `${idx * 80}ms` }}
                     onClick={() => setInput(topic.desc)}
                   >
-                    <div className="font-semibold text-lg text-purple-700 mb-1">{topic.title}</div>
-                    <div className="text-purple-400">{topic.desc}</div>
+                    <div className="font-semibold text-black mb-1">{topic.title}</div>
+                    <div className="text-black">{topic.desc}</div>
                   </div>
                 ))}
               </div>
@@ -535,12 +534,12 @@ export default function App() {
                               <img
                                 src={imgUrl}
                                 alt={`Variation ${i + 1}`}
-                                className="rounded-2xl shadow-lg"
+                                className="rounded-sm shadow-sm"
                                 style={{ maxWidth: 140, maxHeight: 140 }}
                               />
                               <div className="flex gap-1 mt-1">
                                 <button
-                                  className="flex items-center justify-center p-1 rounded-lg bg-purple-100 hover:bg-purple-200 transition-colors text-purple-700 shadow"
+                                  className="flex items-center justify-center p-1 rounded-sm bg-gray-100 hover:bg-gray-200 transition-colors text-black shadow-sm"
                                   onClick={() => handleDownload(imgUrl)}
                                   title="Download"
                                   type="button"
@@ -549,7 +548,7 @@ export default function App() {
                                   <Download size={16} />
                                 </button>
                                 <button
-                                  className="flex items-center justify-center p-1 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 shadow"
+                                  className="flex items-center justify-center p-1 rounded-sm bg-gray-100 hover:bg-gray-200 transition-colors text-black shadow-sm"
                                   onClick={() => handleExpand(idx, i)}
                                   title="Expand"
                                   type="button"
@@ -565,7 +564,7 @@ export default function App() {
                         <img
                           src={msg.content}
                           alt="Generated"
-                          className="rounded-2xl shadow-lg"
+                          className="rounded-sm shadow-sm"
                           style={{ maxWidth: 280, maxHeight: 280 }}
                         />
                       )}
@@ -574,7 +573,7 @@ export default function App() {
                     {!Array.isArray(msg.content) && (
                       <div className="flex gap-2 mt-1 ml-10">
                         <button
-                          className="flex items-center justify-center p-2 rounded-lg bg-purple-100 hover:bg-purple-200 transition-colors text-purple-700 shadow"
+                          className="flex items-center justify-center p-2 rounded-sm bg-gray-100 hover:bg-gray-200 transition-colors text-black shadow-sm"
                           onClick={() => handleDownload(msg.content)}
                           title="Download"
                           type="button"
@@ -583,7 +582,7 @@ export default function App() {
                           <Download size={20} />
                         </button>
                         <button
-                          className="flex items-center justify-center p-2 rounded-lg bg-pink-100 hover:bg-pink-200 transition-colors text-pink-700 shadow"
+                          className="flex items-center justify-center p-2 rounded-sm bg-gray-100 hover:bg-gray-200 transition-colors text-black shadow-sm"
                           onClick={() => handleRegenerate(msg.prompt, idx)}
                           title="Regenerate"
                           type="button"
@@ -593,7 +592,7 @@ export default function App() {
                           <RefreshCw size={20} />
                         </button>
                         <button
-                          className="flex items-center justify-center p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 shadow"
+                          className="flex items-center justify-center p-2 rounded-sm bg-gray-100 hover:bg-gray-200 transition-colors text-black shadow-sm"
                           onClick={() => handleExpand(idx)}
                           title="Expand"
                           type="button"
@@ -606,7 +605,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="flex items-center animate-slide-in-right gap-2">
-                    <div className="bg-gradient-to-br from-purple-400 to-pink-400 text-white px-4 py-2 rounded-xl shadow-md max-w-xs text-right break-words">
+                    <div className="bg-gray-100 text-black px-4 py-2 rounded-sm shadow-sm max-w-xs text-right break-words">
                       {msg.content}
                     </div>
                     <UserLogo />
@@ -618,7 +617,7 @@ export default function App() {
               <div className="flex w-full mb-4 items-end justify-start">
                 <div className="flex items-center animate-fade-in">
                   <div className="loader mr-2" />
-                  <div className="text-purple-400">Generating image...</div>
+                  <div className="text-black">Generating image...</div>
                 </div>
               </div>
             )}
@@ -631,16 +630,16 @@ export default function App() {
         )}
 
         <form
-          className="flex flex-col gap-2 bg-white/70 rounded-xl border border-purple-100 px-4 py-2 shadow-inner"
+          className="flex flex-col gap-2 bg-white rounded-sm border border-gray-200 px-3 py-2 shadow-sm"
           onSubmit={handleFormSubmit}
         >
           {/* Mode Toggle */}
           <div className="flex gap-2 mb-2">
             <button
               type="button"
-              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${mode === "generate"
-                ? "bg-gradient-to-br from-purple-400 to-pink-400 text-white"
-                : "bg-white border border-purple-200 text-purple-500"
+              className={`px-4 py-2 rounded-sm font-medium shadow-sm transition-colors duration-200 ${mode === "generate"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white border border-blue-300 text-black"
                 }`}
               onClick={() => handleModeChange("generate")}
               disabled={loading}
@@ -649,9 +648,9 @@ export default function App() {
             </button>
             <button
               type="button"
-              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${mode === "edit"
-                ? "bg-gradient-to-br from-pink-400 to-purple-400 text-white"
-                : "bg-white border border-pink-200 text-pink-500"
+              className={`px-4 py-2 rounded-sm font-medium shadow-sm transition-colors duration-200 ${mode === "edit"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white border border-blue-300 text-black"
                 }`}
               onClick={() => handleModeChange("edit")}
               disabled={loading}
@@ -660,9 +659,9 @@ export default function App() {
             </button>
             <button
               type="button"
-              className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-colors duration-200 ${mode === "variation"
-                ? "bg-gradient-to-br from-yellow-400 to-pink-400 text-white"
-                : "bg-white border border-yellow-200 text-yellow-600"
+              className={`px-4 py-2 rounded-sm font-medium shadow-sm transition-colors duration-200 ${mode === "variation"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white border border-blue-300 text-black"
                 }`}
               onClick={() => handleModeChange("variation")}
               disabled={loading}
@@ -673,7 +672,7 @@ export default function App() {
           {/* Prompt Input (for generate and edit modes) */}
           {(mode === "generate" || mode === "edit") && (
             <input
-              className="flex-1 bg-transparent outline-none text-purple-700 placeholder-purple-300 text-lg px-2 py-2 mb-1"
+              className="flex-1 bg-transparent outline-none text-black placeholder-gray-400 text-lg px-2 py-2 mb-1"
               placeholder={
                 mode === "generate"
                   ? "Describe the image you want to create..."
@@ -693,13 +692,13 @@ export default function App() {
           {mode === "generate" && (
             <div className="flex flex-col gap-2 mb-1">
               {/* Model Selection */}
-              <label className="text-purple-500 font-medium">
+              <label className="text-black font-medium">
                 Model:
                 <select
                   value={genModel}
                   onChange={e => setGenModel(e.target.value)}
                   disabled={loading}
-                  className="ml-2 px-2 py-1 rounded border border-purple-200"
+                  className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                 >
                   <option value="dall-e-2">dall-e-2</option>
                   <option value="dall-e-3">dall-e-3</option>
@@ -708,13 +707,13 @@ export default function App() {
               </label>
               {/* Background (gpt-image-1 only) */}
               {genModel === "gpt-image-1" && (
-                <label className="text-purple-500 font-medium">
+                <label className="text-black font-medium">
                   Background:
                   <select
                     value={genBackground}
                     onChange={e => setGenBackground(e.target.value)}
                     disabled={loading}
-                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                    className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                   >
                     <option value="auto">auto</option>
                     <option value="transparent">transparent</option>
@@ -724,13 +723,13 @@ export default function App() {
               )}
               {/* Output Format (gpt-image-1 only) */}
               {genModel === "gpt-image-1" && (
-                <label className="text-purple-500 font-medium">
+                <label className="text-black font-medium">
                   Output Format:
                   <select
                     value={genOutputFormat}
                     onChange={e => setGenOutputFormat(e.target.value)}
                     disabled={loading}
-                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                    className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                   >
                     <option value="png">png</option>
                     <option value="jpeg">jpeg</option>
@@ -740,7 +739,7 @@ export default function App() {
               )}
               {/* Output Compression (gpt-image-1 + jpeg/webp only) */}
               {genModel === "gpt-image-1" && (genOutputFormat === "jpeg" || genOutputFormat === "webp") && (
-                <label className="text-purple-500 font-medium">
+                <label className="text-black font-medium">
                   Output Compression:
                   <input
                     type="number"
@@ -749,20 +748,20 @@ export default function App() {
                     value={genOutputCompression}
                     onChange={e => setGenOutputCompression(Number(e.target.value))}
                     disabled={loading}
-                    className="ml-2 w-16 px-2 py-1 rounded border border-purple-200"
+                    className="ml-2 w-16 px-2 py-1 rounded-sm border border-gray-300"
                   />
-                  <span className="ml-1 text-xs text-purple-400">%</span>
+                  <span className="ml-1 text-xs text-black">%</span>
                 </label>
               )}
               {/* Moderation (gpt-image-1 only) */}
               {genModel === "gpt-image-1" && (
-                <label className="text-purple-500 font-medium">
+                <label className="text-black font-medium">
                   Moderation:
                   <select
                     value={genModeration}
                     onChange={e => setGenModeration(e.target.value)}
                     disabled={loading}
-                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                    className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                   >
                     <option value="auto">auto</option>
                     <option value="low">low</option>
@@ -771,13 +770,13 @@ export default function App() {
               )}
               {/* Style (dall-e-3 only) */}
               {genModel === "dall-e-3" && (
-                <label className="text-purple-500 font-medium">
+                <label className="text-black font-medium">
                   Style:
                   <select
                     value={genStyle}
                     onChange={e => setGenStyle(e.target.value)}
                     disabled={loading}
-                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                    className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                   >
                     <option value="vivid">vivid</option>
                     <option value="natural">natural</option>
@@ -788,16 +787,16 @@ export default function App() {
               <div>
                 <button
                   type="button"
-                  className="text-purple-600 font-semibold underline text-sm mb-1"
+                  className="text-black font-medium underline text-sm mb-1"
                   onClick={() => setShowAdvanced((v) => !v)}
                   style={{ outline: "none" }}
                 >
                   {showAdvanced ? "Hide" : "Show"} Advanced Options
                 </button>
                 {showAdvanced && (
-                  <div className="flex flex-col gap-2 p-3 rounded-xl border border-purple-100 bg-purple-50/40 shadow-inner mt-1">
+                  <div className="flex flex-col gap-2 p-3 rounded-sm border border-gray-200 bg-gray-50 shadow-sm mt-1">
                     {/* Number of Images */}
-                    <label className="text-purple-500 font-medium">
+                    <label className="text-black font-medium">
                       Number of Images:
                       <input
                         type="number"
@@ -806,17 +805,17 @@ export default function App() {
                         value={genN}
                         onChange={e => setGenN(Number(e.target.value))}
                         disabled={loading}
-                        className="ml-2 w-16 px-2 py-1 rounded border border-purple-200"
+                        className="ml-2 w-16 px-2 py-1 rounded-sm border border-gray-300"
                       />
                     </label>
                     {/* Size */}
-                    <label className="text-purple-500 font-medium">
+                    <label className="text-black font-medium">
                       Size:
                       <select
                         value={genSize}
                         onChange={e => setGenSize(e.target.value)}
                         disabled={loading}
-                        className="ml-2 px-2 py-1 rounded border border-purple-200"
+                        className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                       >
                         {genModel === "gpt-image-1" && (
                           <>
@@ -844,13 +843,13 @@ export default function App() {
                     </label>
                     {/* Quality */}
                     {(genModel === "gpt-image-1" || genModel === "dall-e-3" || genModel === "dall-e-2") && (
-                      <label className="text-purple-500 font-medium">
+                      <label className="text-black font-medium">
                         Quality:
                         <select
                           value={genQuality}
                           onChange={e => setGenQuality(e.target.value)}
                           disabled={loading}
-                          className="ml-2 px-2 py-1 rounded border border-purple-200"
+                          className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                         >
                           {genModel === "gpt-image-1" && (
                             <>
@@ -877,13 +876,13 @@ export default function App() {
                     )}
                     {/* Response Format (dall-e-2, dall-e-3 only) */}
                     {(genModel === "dall-e-2" || genModel === "dall-e-3") && (
-                      <label className="text-purple-500 font-medium">
+                      <label className="text-black font-medium">
                         Response Format:
                         <select
                           value={genResponseFormat}
                           onChange={e => setGenResponseFormat(e.target.value)}
                           disabled={loading}
-                          className="ml-2 px-2 py-1 rounded border border-purple-200"
+                          className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                         >
                           <option value="url">url</option>
                           <option value="b64_json">b64_json</option>
@@ -891,14 +890,14 @@ export default function App() {
                       </label>
                     )}
                     {/* User (optional) */}
-                    <label className="text-purple-500 font-medium">
+                    <label className="text-black font-medium">
                       User (optional):
                       <input
                         type="text"
                         value={genUser}
                         onChange={e => setGenUser(e.target.value)}
                         disabled={loading}
-                        className="ml-2 px-2 py-1 rounded border border-purple-200"
+                        className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                         placeholder="user id"
                       />
                     </label>
@@ -910,7 +909,7 @@ export default function App() {
           {/* Variation Mode Fields */}
           {mode === "variation" && (
             <div className="flex flex-col md:flex-row gap-2 items-center mb-1">
-              <label className="cursor-pointer text-yellow-600 font-medium">
+              <label className="cursor-pointer text-black font-medium">
                 Image for Variation:
                 <input
                   type="file"
@@ -921,11 +920,11 @@ export default function App() {
                 />
               </label>
               {variationImage && (
-                <span className="text-xs text-green-600 ml-2 animate-fade-in">
+                <span className="text-xs text-black ml-2 animate-fade-in">
                   {variationImage.name}
                 </span>
               )}
-              <label className="text-yellow-600 font-medium ml-4">
+              <label className="text-black font-medium ml-4">
                 Number of Variations:
                 <input
                   type="number"
@@ -934,16 +933,16 @@ export default function App() {
                   value={variationN}
                   onChange={e => setVariationN(Number(e.target.value))}
                   disabled={loading}
-                  className="ml-2 w-16 px-2 py-1 rounded border border-yellow-200"
+                  className="ml-2 w-16 px-2 py-1 rounded-sm border border-gray-300"
                 />
               </label>
-              <label className="text-yellow-600 font-medium ml-4">
+              <label className="text-black font-medium ml-4">
                 Size:
                 <select
                   value={variationSize}
                   onChange={e => setVariationSize(e.target.value)}
                   disabled={loading}
-                  className="ml-2 px-2 py-1 rounded border border-yellow-200"
+                  className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                 >
                   <option value="256x256">256x256</option>
                   <option value="512x512">512x512</option>
@@ -955,7 +954,7 @@ export default function App() {
           {/* Image Upload (Edit mode) */}
           {mode === "edit" && (
             <div className="flex flex-col md:flex-row gap-2 items-center mb-1 cursor-pointer">
-              <label className="cursor-pointer text-purple-500 font-medium">
+              <label className="cursor-pointer text-black font-medium">
                 Image to Edit:
                 <input
                   type="file"
@@ -966,7 +965,7 @@ export default function App() {
                 />
               </label>
               {uploadedImage && (
-                <span className="text-xs text-green-600 ml-2 animate-fade-in">
+                <span className="text-xs text-black ml-2 animate-fade-in">
                   {uploadedImage.name}
                 </span>
               )}
@@ -974,7 +973,7 @@ export default function App() {
               {uploadedImage && (
                 <button
                   type="button"
-                  className="ml-4 px-3 py-1 rounded-lg bg-pink-100 hover:bg-pink-200 text-pink-700 font-semibold shadow transition-colors"
+                  className="ml-4 px-3 py-1 rounded-sm bg-gray-100 hover:bg-gray-200 text-black font-medium shadow-sm transition-colors"
                   onClick={() => setShowMaskEditor(true)}
                   disabled={loading}
                 >
@@ -982,7 +981,7 @@ export default function App() {
                 </button>
               )}
               {maskCanvasUrl && (
-                <span className="text-xs text-pink-600 ml-2 animate-fade-in">
+                <span className="text-xs text-black ml-2 animate-fade-in">
                   Mask ready
                 </span>
               )}
@@ -991,13 +990,13 @@ export default function App() {
           {/* Model Selection (Edit mode) */}
           {mode === "edit" && (
             <div className="flex flex-col md:flex-row gap-2 items-center mb-1">
-              <label className="text-purple-500 font-medium">
+              <label className="text-black font-medium">
                 Model:
                 <select
                   value={model}
                   onChange={e => setModel(e.target.value)}
                   disabled={loading}
-                  className="ml-2 px-2 py-1 rounded border border-purple-200"
+                  className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                 >
                   <option value="dall-e-2">dall-e-2</option>
                   <option value="gpt-image-1">gpt-image-1</option>
@@ -1006,26 +1005,26 @@ export default function App() {
               {/* Advanced options for gpt-image-1 */}
               {model === "gpt-image-1" && (
                 <>
-                  <label className="text-purple-500 font-medium ml-4">
+                  <label className="text-black font-medium ml-4">
                     Background:
                     <select
                       value={background}
                       onChange={e => setBackground(e.target.value)}
                       disabled={loading}
-                      className="ml-2 px-2 py-1 rounded border border-purple-200"
+                      className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                     >
                       <option value="auto">auto</option>
                       <option value="transparent">transparent</option>
                       <option value="opaque">opaque</option>
                     </select>
                   </label>
-                  <label className="text-purple-500 font-medium ml-4">
+                  <label className="text-black font-medium ml-4">
                     Quality:
                     <select
                       value={quality}
                       onChange={e => setQuality(e.target.value)}
                       disabled={loading}
-                      className="ml-2 px-2 py-1 rounded border border-purple-200"
+                      className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                     >
                       <option value="auto">auto</option>
                       <option value="high">high</option>
@@ -1033,13 +1032,13 @@ export default function App() {
                       <option value="low">low</option>
                     </select>
                   </label>
-                  <label className="text-purple-500 font-medium ml-4">
+                  <label className="text-black font-medium ml-4">
                     Size:
                     <select
                       value={size}
                       onChange={e => setSize(e.target.value)}
                       disabled={loading}
-                      className="ml-2 px-2 py-1 rounded border border-purple-200"
+                      className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                     >
                       <option value="1024x1024">1024x1024</option>
                       <option value="1536x1024">1536x1024 (landscape)</option>
@@ -1051,13 +1050,13 @@ export default function App() {
               )}
               {/* Size for dall-e-2 */}
               {model === "dall-e-2" && (
-                <label className="text-purple-500 font-medium ml-4">
+                <label className="text-black font-medium ml-4">
                   Size:
                   <select
                     value={size}
                     onChange={e => setSize(e.target.value)}
                     disabled={loading}
-                    className="ml-2 px-2 py-1 rounded border border-purple-200"
+                    className="ml-2 px-2 py-1 rounded-sm border border-gray-300"
                   >
                     <option value="256x256">256x256</option>
                     <option value="512x512">512x512</option>
@@ -1075,7 +1074,7 @@ export default function App() {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-gradient-to-br from-purple-400 to-pink-400 hover:from-purple-500 hover:to-pink-500 transition-colors duration-200 shadow-md text-white font-semibold disabled:opacity-60"
+              className="px-4 py-2 rounded-sm bg-blue-700 hover:bg-blue-800 transition-colors duration-200 shadow-sm text-white font-medium disabled:opacity-60"
               disabled={loading}
             >
               {loading
